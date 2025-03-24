@@ -105,9 +105,9 @@ public class ExcelProcessorFactory {
     }
 
     public String convertCamelToCustomFormat(String camelCase) {
-        return camelCase.replaceAll("([a-z])([A-Z])", "$1  $2") // Thêm hai khoảng trắng giữa các từ
+        return camelCase.replaceAll("([a-z])([A-Z])", "$1 $2") // Thêm hai khoảng trắng giữa các từ
                 .substring(0, 1).toUpperCase()         // Viết hoa ký tự đầu
-                + camelCase.replaceAll("([a-z])([A-Z])", "$1  $2").substring(1); // Giữ phần còn lại của chuỗi
+                + camelCase.replaceAll("([a-z])([A-Z])", "$1 $2").substring(1); // Giữ phần còn lại của chuỗi
     }
 
     private String[] extractColumns(Class<?> clazz) {
