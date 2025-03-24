@@ -1,29 +1,39 @@
 package com.example.demo.service.strategy;
 
+import com.example.demo.factory.Example1;
+import com.example.demo.repository.Example1Repository;
 import com.example.demo.repository.InterfaceTableRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 
 @Component
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ExcelProcessorFactory {
     InterfaceTableRepository interfaceTableRepository;
+    Example1Repository example1Repository;
     private static final Logger log = LoggerFactory.getLogger(ExcelProcessorFactory.class);
 
     @Autowired
-    public ExcelProcessorFactory(InterfaceTableRepository interfaceTableRepository) {
+    public ExcelProcessorFactory(InterfaceTableRepository interfaceTableRepository, Example1Repository example1Repository) {
         this.interfaceTableRepository = interfaceTableRepository;
+        this.example1Repository = example1Repository;
     }
 
 
@@ -94,32 +104,73 @@ public class ExcelProcessorFactory {
         }
     }
 
+    public String convertCamelToCustomFormat(String camelCase) {
+        return camelCase.replaceAll("([a-z])([A-Z])", "$1  $2") // Thêm hai khoảng trắng giữa các từ
+                .substring(0, 1).toUpperCase()         // Viết hoa ký tự đầu
+                + camelCase.replaceAll("([a-z])([A-Z])", "$1  $2").substring(1); // Giữ phần còn lại của chuỗi
+    }
 
-//    public void writeToExcel() throws IOException {
-//        Workbook workbook = new XSSFWorkbook();
-//        Sheet sheet = workbook.createSheet("ExcelData");
-//
-//        // Header row
-//        Row headerRow = sheet.createRow(0);
-//        headerRow.createCell(0).setCellValue("ID");
-//        headerRow.createCell(1).setCellValue("Name");
-//        headerRow.createCell(2).setCellValue("Age");
-//
-//        // Data rows
-//        List<ExcelData> dataList = excelDataRepository.findAll();
-//        int rowIndex = 1; // Start from the second row (index 1)
-//        for (ExcelData data : dataList) {
-//            Row row = sheet.createRow(rowIndex++);
-//            row.createCell(0).setCellValue(data.getId()); // ID column
-//            row.createCell(1).setCellValue(data.getName()); // Name column
-//            row.createCell(2).setCellValue(data.getAge()); // Age column
-//        }
-//
-//        // Write to file
-//        try (FileOutputStream fileOut = new FileOutputStream("D://Data//Clother//output.xlsx")) {
-//            workbook.write(fileOut);
-//        }
-//        workbook.close();
-//    }
+    private String[] extractColumns(Class<?> clazz) {
+        Field[] fields = clazz.getDeclaredFields();
+        // Tạo mảng String để lưu tên các trường
+        String[] fieldNames = new String[fields.length];
+
+        for (int i = 0; i < fields.length; i++) {
+            fieldNames[i] = convertCamelToCustomFormat(fields[i].getName()); // Lấy tên của từng trường
+        }
+
+        return fieldNames;
+    }
+
+    public void writeToExcel() throws IOException, InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("ExcelData");
+
+        // Header row
+        CellStyle lockedCellStyle = workbook.createCellStyle();
+        lockedCellStyle.setLocked(true);
+
+        Row headerRow = sheet.createRow(0);
+        String[] header = extractColumns(Example1.class);
+
+        for(int i = 0; i < header.length; i++){
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(header[i]); // Set header text
+            cell.setCellStyle(lockedCellStyle);
+        }
+
+        // Data rows
+        List<Example1> dataList = example1Repository.findAll();
+
+
+        int rowIndex = 1; // Start from the second row (index 1)
+        for (Example1 data : dataList) {
+            log.info("data: " + data.toString());
+            Row row = sheet.createRow(rowIndex++);
+            for (int i = 0; i < header.length; i++) {
+                // Use reflection to get field values dynamically
+                Field[] fields = data.getClass().getDeclaredFields();
+
+                Field field = fields[i];
+                field.setAccessible(true);
+                try {
+                    Object value = field.get(data);
+                    log.info("value: " + value);
+                    row.createCell(i).setCellValue(value != null ? value.toString() : ""); // Handle null values
+                } catch ( Exception e) {
+                    // Log or handle any errors (e.g., missing getter)
+                    row.createCell(i).setCellValue(""); // Default to empty cell
+                    e.printStackTrace();
+                }
+
+            }
+        }
+
+        // Write to file
+        try (FileOutputStream fileOut = new FileOutputStream("D://Data//Clother//output.xlsx")) {
+            workbook.write(fileOut);
+        }
+        workbook.close();
+    }
 
 }

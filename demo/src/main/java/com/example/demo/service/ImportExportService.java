@@ -27,4 +27,13 @@ public class ImportExportService {
 
     }
 
+    public void export(String fileType) throws Exception {
+        switch(fileType){
+            case Constant.FILE_TYPE_EXCEL:{
+                excelProcessorFactory.writeToExcel();
+            }
+        }
+
+    }
+
 }

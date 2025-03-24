@@ -22,4 +22,9 @@ public class ExcelController {
                             @RequestParam("objectType") String objectType) throws Exception {
         importExportService.importData(file, objectType, typeFile);
     }
+
+    @PostMapping("/write")
+    public void uploadExcel(@RequestParam("typeFile") String typeFile) throws Exception {
+        importExportService.export(typeFile);
+    }
 }
