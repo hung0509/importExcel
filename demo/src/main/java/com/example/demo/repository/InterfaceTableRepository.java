@@ -13,21 +13,10 @@ public class InterfaceTableRepository {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public void saveRow(Map<String, Object> rowData) {
-        String columns = String.join(",", rowData.keySet());
-        String values = rowData.values().stream()
-                .map(value -> {
-                    if (value instanceof String) {
-                        return "'" + value + "'";
-                    } else if (value instanceof Number) {
-                        return value.toString(); // Số giữ nguyên, không thêm dấu nháy
-                    } else {
-                        return null; // Xử lý trường hợp null hoặc các kiểu khác
-                    }
-                })
-                .collect(Collectors.joining(","));
+    public void saveRow(String columns,  String values, String objectType) {
+        String interface_table = getTableName(objectType);
 
-        String sql = "INSERT INTO interface_table (" + columns + ") VALUES (" + values + ")";
+        String sql = "INSERT INTO " +  interface_table + " (" + columns + ") VALUES " + values + ";";
         jdbcTemplate.update(sql);
     }
 
@@ -35,4 +24,21 @@ public class InterfaceTableRepository {
         return jdbcTemplate.queryForList("SELECT * FROM interface_table");
     }
 
+    private String getTableName(String code){
+        return jdbcTemplate.queryForObject("SELECT ref_table FROM objectType where code = '" + code + "';", String.class);
+    }
+
 }
+
+//String values = rowData.values().stream()
+//        .map(value -> {
+//            if (value instanceof String) {
+//                return "'" + value + "'";
+//            } else if (value instanceof Number) {
+//                return value.toString(); // Số giữ nguyên, không thêm dấu nháy
+//            } else {
+//                return null; // Xử lý trường hợp null hoặc các kiểu khác
+//            }
+//        })
+//        .collect(Collectors.joining(","));
+
