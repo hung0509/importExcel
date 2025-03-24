@@ -4,7 +4,11 @@ import com.example.demo.repository.InterfaceTableRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,10 +16,16 @@ import java.io.InputStream;
 import java.util.*;
 
 @Component
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ExcelProcessorFactory {
     InterfaceTableRepository interfaceTableRepository;
+    private static final Logger log = LoggerFactory.getLogger(ExcelProcessorFactory.class);
+
+    @Autowired
+    public ExcelProcessorFactory(InterfaceTableRepository interfaceTableRepository) {
+        this.interfaceTableRepository = interfaceTableRepository;
+    }
+
 
     public void importExcelFile(MultipartFile file,String objectType ) throws Exception {
         try (InputStream inputStream = file.getInputStream();
@@ -32,19 +42,21 @@ public class ExcelProcessorFactory {
             while (headerIterator.hasNext()) {
                 Cell cell = headerIterator.next();
                 //create column
-                String column = cell.getStringCellValue().replaceAll("\\s+", "_");
+                if (col > 0) {
+                    columnName.append(", ");
+                }
+
+                String column = cell.getStringCellValue().toLowerCase().replaceAll("\\s+", "_");
                 if(column.contains("id") && !column.startsWith("d_") && !column.equalsIgnoreCase("ID")){
                     columnName.append("d_").append(column);
                 }else{
                     columnName.append(column);
                 }
-
-                if (col > 0) {
-                    columnName.append(", ");
-                }
-                columnName.append(column);
                 col++;
             }
+
+            log.info("Columns: {" + columnName.toString() + "}");
+            log.info("col: {" + col + "}");
 
             // Duyệt qua các dòng dữ liệu, bắt đầu từ dòng thứ 2 (bỏ qua tiêu đề)
             StringBuilder values = new StringBuilder();
@@ -56,20 +68,26 @@ public class ExcelProcessorFactory {
                         Cell cell = row.getCell(i);
                         String value;
                         // Kiểm tra kiểu dữ liệu của ô
-                        if (cell.getCellType() == CellType.NUMERIC) {
-                            value = String.valueOf(cell.getNumericCellValue()); // Chuyển giá trị số thành chuỗi
-                        } else {
-                            value = "'" +  cell.getStringCellValue() + "'"; // Lấy giá trị chuỗi
-                        }
+                        if (cell != null) {
+                            if (cell.getCellType() == CellType.NUMERIC) {
+                                value = String.valueOf(cell.getNumericCellValue()); // Chuyển giá trị số thành chuỗi
+                            } else {
+                                value = "'" + cell.getStringCellValue() + "'"; // Lấy giá trị chuỗi
+                            }
 
-                        if(i == col - 1) {
-                            values.append("(" + value + ")");
-                        }else{
-                            values.append("(" + value + "),");
+                            if (i == col - 1) {
+                                values.append("," +  value + "),");
+                            } else if( i == 0) {
+                                values.append("(" + value);
+                            }else {
+                                values.append("," + value );
+                            }
                         }
                     }
                 }
             }
+            values.deleteCharAt(values.length() - 1);
+            log.info("Values: {" + values.toString() + "}");
 
             // Lưu danh sách dữ liệu vào cơ sở dữ liệu
             interfaceTableRepository.saveRow(columnName.toString(), values.toString(), objectType);
